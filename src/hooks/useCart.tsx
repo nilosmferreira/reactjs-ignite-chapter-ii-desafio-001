@@ -1,4 +1,10 @@
-import { createContext, ReactNode, useContext, useState } from 'react';
+import {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
 import { toast } from 'react-toastify';
 import { api } from '../services/api';
 import { Product, Stock } from '../types';
@@ -21,30 +27,54 @@ interface CartContextData {
 
 const CartContext = createContext<CartContextData>({} as CartContextData);
 
+const KEYSTORAGE = '@RocketShoes:cart';
+
 export function CartProvider({ children }: CartProviderProps): JSX.Element {
   const [cart, setCart] = useState<Product[]>(() => {
-    // const storagedCart = Buscar dados do localStorage
+    const storagedCart = localStorage.getItem(KEYSTORAGE); //Buscar dados do localStorage
 
-    // if (storagedCart) {
-    //   return JSON.parse(storagedCart);
-    // }
+    if (storagedCart) {
+      return JSON.parse(storagedCart);
+    }
 
     return [];
   });
 
+  useEffect(() => {
+    localStorage.setItem(KEYSTORAGE, JSON.stringify(cart));
+  }, [cart]);
+
   const addProduct = async (productId: number) => {
     try {
-      // TODO
+      const stock = (await api.get<Stock>(`stock/${productId}`)).data;
+      const productCart = cart.find((x, index) => x.id === productId);
+
+      if (productCart) {
+        if (productCart.amount + 1 > stock.amount) {
+          toast.error('Quantidade solicitada fora de estoque');
+        } else {
+          const newProducts = cart.map((prod) => {
+            if (prod.id === productId) prod.amount += 1;
+            return prod;
+          });
+          setCart(newProducts);
+        }
+      } else {
+        const product = (await api.get<Product>(`products/${productId}`)).data;
+        product.amount = 1;
+        setCart([...cart, product]);
+      }
     } catch {
-      // TODO
+      toast.error('Erro na adição do produto');
     }
   };
 
   const removeProduct = (productId: number) => {
     try {
-      // TODO
+      const filtred = cart.filter((product) => productId !== product.id);
+      setCart(filtred);
     } catch {
-      // TODO
+      toast.error('Erro na remoção do produto');
     }
   };
 
@@ -53,15 +83,32 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     amount,
   }: UpdateProductAmount) => {
     try {
-      // TODO
+      const stock = (await api.get<Stock>(`stock/${productId}`)).data;
+
+      if (amount <= stock.amount) {
+        const changedProducts = cart.map((p) => {
+          if (productId === p.id) {
+            p.amount = amount;
+          }
+          return p;
+        });
+        setCart(changedProducts);
+      } else {
+        toast.error('Erro na adição do produto');
+      }
     } catch {
-      // TODO
+      toast.error('Erro na alteração de quantidade do produto');
     }
   };
 
   return (
     <CartContext.Provider
-      value={{ cart, addProduct, removeProduct, updateProductAmount }}
+      value={{
+        cart,
+        addProduct,
+        removeProduct,
+        updateProductAmount,
+      }}
     >
       {children}
     </CartContext.Provider>
