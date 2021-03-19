@@ -49,11 +49,12 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
     try {
       const cartIndex = cart.findIndex((cart) => cart.id === productId);
       const { data: stock } = await api.get<Stock>(`/stock/${productId}`);
-      const { data: product } = await api.get<Product>(
-        `/products/${productId}`
-      );
       if (cartIndex === -1) {
         if (stock.amount > 0) {
+          const { data: product } = await api.get<Product>(
+            `/products/${productId}`
+          );
+
           const newCarts = [...cart, { ...product, amount: 1 }];
           updateCartProduct(newCarts);
         } else {
@@ -81,7 +82,11 @@ export function CartProvider({ children }: CartProviderProps): JSX.Element {
   const removeProduct = (productId: number) => {
     try {
       const filtred = cart.filter((product) => productId !== product.id);
-      setCart(filtred);
+      if (filtred.length === cart.length) {
+        toast.error('Erro na remoção do produto');
+      } else {
+        updateCartProduct(filtred);
+      }
     } catch {
       toast.error('Erro na remoção do produto');
     }
